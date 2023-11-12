@@ -98,7 +98,6 @@ func (c *Client) ShouldOutputSecret() bool {
 	return c.Spec.ClientSecret.OutputSecretRef.Name != ""
 }
 
-
 //+kubebuilder:object:root=true
 
 // ClientList contains a list of Client
