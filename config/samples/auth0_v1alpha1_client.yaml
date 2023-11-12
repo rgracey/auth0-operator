@@ -9,4 +9,11 @@ metadata:
     app.kubernetes.io/created-by: auth0-operator
   name: client-sample
 spec:
-  # TODO(user): Add fields here
+  name: auth0-operator-sample
+  description: Auth0 Operator Sample client
+  type: spa
+  callbackUrls:
+    - http://localhost:3000/callback
+    - https://example.com/callback
+  metadata:
+    something: this is the value

@@ -28,14 +28,31 @@ type ClientSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Client. Edit client_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// The name of the client
+	Name string `json:"name,omitempty"`
+
+	// The description of the client
+	Description string `json:"description,omitempty"`
+
+	// Allowed callback URLs for the client
+	CallbackUrls []string `json:"callbackUrls,omitempty"`
+
+	// The type of client this is
+	// +kubebuilder:validation:Enum:={"spa","native","regular","non_interactive"}
+	Type string `json:"type,omitempty"`
+
+	// The metadata associated with this client
+	// +kubebuilder:validation:MaxProperties:=10
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 // ClientStatus defines the observed state of Client
 type ClientStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// The Auth0 ID of this client
+	Auth0Id string `json:"auth0Id,omitempty"`
 }
 
 //+kubebuilder:object:root=true

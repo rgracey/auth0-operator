@@ -17,7 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
+	"fmt"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -32,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	"github.com/auth0/go-auth0/management"
 	auth0v1alpha1 "github.com/rgracey/auth0-operator/api/v1alpha1"
 	"github.com/rgracey/auth0-operator/internal/controller"
 	//+kubebuilder:scaffold:imports
@@ -47,6 +50,15 @@ func init() {
 
 	utilruntime.Must(auth0v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
+}
+
+// mustGetEnv returns the value of an environment variable or panics if it is not set.
+func mustGetEnv(key string) string {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		panic(fmt.Sprintf("Required environment variable %s not set", key))
+	}
+	return value
 }
 
 func main() {
@@ -89,9 +101,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	domain := mustGetEnv("AUTH0_DOMAIN")
+	clientID := mustGetEnv("AUTH0_CLIENT_ID")
+	clientSecret := mustGetEnv("AUTH0_CLIENT_SECRET")
+
+	auth0Api, err := management.New(
+		domain,
+		management.WithClientCredentials(context.Background(), clientID, clientSecret),
+	)
+
+	if err != nil {
+		setupLog.Error(err, "unable to create auth0 api client")
+		os.Exit(1)
+	}
+
 	if err = (&controller.ClientReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("client-controller"),
+		Auth0Api: auth0Api,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Client")
 		os.Exit(1)
