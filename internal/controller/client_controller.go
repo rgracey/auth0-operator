@@ -102,7 +102,7 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// Create the Client if it doesn't exist
-	if instance.Status.Auth0Id == "" {
+	if instance.Auth0Id() == "" {
 		logger.Info("creating client", "name", instance.Spec.Name)
 		err := r.Auth0Api.Client.Create(ctx, c)
 
@@ -139,12 +139,12 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	c, err = r.Auth0Api.Client.Read(ctx, instance.Status.Auth0Id)
 
 	if err != nil {
-		logger.Error(err, "unable to read client", "name", instance.Spec.Name)
+		logger.Error(err, "unable to fetch client", "name", instance.Spec.Name)
 		r.Recorder.Event(instance, "Warning", EventReasonUpdateFailed, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	if instance.Spec.ClientSecret.OutputSecretRef.Name != "" {
+	if instance.ShouldOutputSecret() {
 		if err := r.upsertOutputSecret(ctx, instance, c.GetClientSecret()); err != nil {
 			return ctrl.Result{}, err
 		}

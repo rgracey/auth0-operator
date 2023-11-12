@@ -83,9 +83,21 @@ type Client struct {
 	Status ClientStatus `json:"status,omitempty"`
 }
 
+// IsBeingDeleted returns true if the Client is being deleted (i.e. has a deletion timestamp)
 func (c *Client) IsBeingDeleted() bool {
 	return c.GetDeletionTimestamp() != nil
 }
+
+// Auth0Id returns the Auth0 ID of the Client
+func (c *Client) Auth0Id() string {
+	return c.Status.Auth0Id
+}
+
+// ShouldOutputSecret returns true if the Client should create a k8s secret
+func (c *Client) ShouldOutputSecret() bool {
+	return c.Spec.ClientSecret.OutputSecretRef.Name != ""
+}
+
 
 //+kubebuilder:object:root=true
 
