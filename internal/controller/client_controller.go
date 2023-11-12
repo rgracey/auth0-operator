@@ -25,7 +25,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/auth0/go-auth0/management"
@@ -39,10 +38,6 @@ type ClientReconciler struct {
 	Recorder record.EventRecorder
 	Auth0Api *management.Management
 }
-
-const (
-	finalizerName = "finalizer.auth0.gracey.io"
-)
 
 const (
 	EventReasonCreated      = "Created"
@@ -77,73 +72,14 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Check if the Client instance is marked to be deleted,
-	// and run finalizer logic
-	isMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
-	if isMarkedToBeDeleted {
+	if err := r.addFinalizer(instance); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Check if the Client instance is being deleted, and run finalizer logic
+	if instance.IsBeingDeleted() {
 		logger.Info("deleting client", "name", instance.Spec.Name)
-
-		if controllerutil.ContainsFinalizer(instance, finalizerName) {
-			if instance.Status.Auth0Id == "" {
-				logger.Info(
-					"Auth0 ID not present. Skipping deletion",
-					"name", instance.Spec.Name,
-				)
-
-				controllerutil.RemoveFinalizer(instance, finalizerName)
-				if err := r.Update(ctx, instance); err != nil {
-					return ctrl.Result{}, err
-				}
-
-				return ctrl.Result{}, nil
-			}
-
-			// N.B output secret is deleted via owner reference garbage collection
-
-			err := r.Auth0Api.Client.Delete(ctx, instance.Status.Auth0Id)
-
-			// TODO - better handling here if the client doesn't exist?
-			if err != nil {
-				logger.Error(
-					err,
-					"unable to delete client",
-					"name", instance.Spec.Name,
-					"Auth0 id", instance.Status.Auth0Id,
-				)
-				r.Recorder.Event(instance, "Warning", EventReasonDeleteFailed, err.Error())
-				return ctrl.Result{}, err
-			}
-
-			logger.Info(
-				"deleted client",
-				"name", instance.Spec.Name,
-				"Auth0 id", instance.Status.Auth0Id,
-			)
-
-			r.Recorder.Event(
-				instance,
-				"Normal",
-				EventReasonDeleted,
-				fmt.Sprintf(
-					"Deleted client %s (ID: %s)",
-					instance.Spec.Name,
-					instance.Status.Auth0Id,
-				),
-			)
-
-			controllerutil.RemoveFinalizer(instance, finalizerName)
-			if err := r.Update(ctx, instance); err != nil {
-				return ctrl.Result{}, err
-			}
-
-			return ctrl.Result{}, nil
-		}
-	} else {
-		// Add finalizer if it doesn't exist
-		if !controllerutil.ContainsFinalizer(instance, finalizerName) {
-			controllerutil.AddFinalizer(instance, finalizerName)
-			return ctrl.Result{}, r.Update(ctx, instance)
-		}
+		return ctrl.Result{}, r.handleFinalizer(ctx, instance)
 	}
 
 	var clientSecret, err = r.maybeLoadSecretValue(ctx, instance)

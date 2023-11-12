@@ -83,6 +83,10 @@ type Client struct {
 	Status ClientStatus `json:"status,omitempty"`
 }
 
+func (c *Client) IsBeingDeleted() bool {
+	return c.GetDeletionTimestamp() != nil
+}
+
 //+kubebuilder:object:root=true
 
 // ClientList contains a list of Client
