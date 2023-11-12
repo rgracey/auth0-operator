@@ -38,7 +38,7 @@ func (r *ClientReconciler) handleFinalizer(ctx context.Context, instance *auth0v
 		return nil
 	}
 
-	if instance.Status.Auth0Id == "" {
+	if instance.Auth0Id() == "" {
 		return r.removeFinalizer(instance)
 	}
 
