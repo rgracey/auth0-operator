@@ -1,47 +1,50 @@
-# auth0-operator
+<br />
+<div align="center">
+  <div>
+    <img src="./docs/images/auth0_logo.svg" alt="Auth0 logo" width="80" height="80">
+    <img src="./docs/images/k8s_logo.svg" alt="Auth0 logo" width="80" height="80">
+  </div>
 
-Kubernetes operator for Auth0
+  <h3 align="center">Auth0 Operator</h3>
 
-## Example Client
+  <p align="center">
+    Kubernetes operator for Auth0 management
+  </p>
+  <br />
+</div>
 
-```yaml
-apiVersion: auth0.gracey.io/v1alpha1
-kind: Client
-metadata:
-    name: client-sample
-spec:
-    # Required. The name of Auth0 client
-    name: auth0-operator-sample
-    # Optional. The description of Auth0 client
-    description: Auth0 Operator Sample client
-    # Required. The type of Auth0 client
-    type: spa
+## About The Project
 
-    # Optional. The URLs that Auth0 is allowed to redirect to after authentication
-    callbackUrls:
-        - http://localhost:3000/callback
-        - https://example.com/callback
+The Auth0 Kubernetes Operator is responsible for managing the lifecycle of Auth0 resources in a Kubernetes cluster.
 
-    # Optional. Metadata to be included in the client
-    metadata:
-        something: placeholder value
+It automates the deployment, configuration, and management of Auth0 resources, such as clients, connections, resource servers and more. (WIP)
 
-    # Optional. Supply the client secret as either a literal value or as
-    # a kubernetes secret. secretRef takes precedence over literal.
-    # If neither are supplied, a secret will be generated and output to
-    # outputSecretRef if supplied.
-    clientSecret:
-        # Optional. Supply the client secret as a literal value
-        # Must be at least 48 characters long
-        literal: "some-secretsome-secretsome-secretsome-secrjshdnd"
+### Built With
 
-        # Optional. Supply the client secret as a kubernetes secret
-        secretRef:
-            name: client-secret
-            key: something
+-   [Kubebuilder](https://book.kubebuilder.io/)
+-   [go-auth0](https://github.com/auth0/go-auth0)
 
-        # Optional. Output the client secret to a kuberenetes secret
-        outputSecretRef:
-            name: output-client-secret
-            key: output-client-secret
-```
+## Getting Started
+
+TODO
+
+### Prerequisites
+
+-   Go 1.20+
+
+### Installation
+
+TODO
+
+## Usage
+
+See the [examples](./docs/examples) directory for usage examples.
+
+## Roadmap
+
+-   [ ] Clients `[WIP]`
+    -   [ ] Client credentials
+    -   [ ] Rotateable client secrets
+    -   [ ] Client grants
+-   [ ] Connections
+-   [ ] Resource Servers
