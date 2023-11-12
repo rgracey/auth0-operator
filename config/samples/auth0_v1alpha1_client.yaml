@@ -1,0 +1,12 @@
+apiVersion: auth0.gracey.io/v1alpha1
+kind: Client
+metadata:
+  labels:
+    app.kubernetes.io/name: client
+    app.kubernetes.io/instance: client-sample
+    app.kubernetes.io/part-of: auth0-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: auth0-operator
+  name: client-sample
+spec:
+  # TODO(user): Add fields here

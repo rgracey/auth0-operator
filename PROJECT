@@ -7,4 +7,14 @@ layout:
 - go.kubebuilder.io/v4
 projectName: auth0-operator
 repo: github.com/rgracey/auth0-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: gracey.io
+  group: auth0
+  kind: Client
+  path: github.com/rgracey/auth0-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"
