@@ -48,3 +48,4 @@ See the [examples](./docs/examples) directory for usage examples.
     -   [ ] Client grants
 -   [ ] Connections
 -   [ ] Resource Servers
+-   [ ] Helm chart
