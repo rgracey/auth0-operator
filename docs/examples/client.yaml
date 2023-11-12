@@ -1,4 +1,3 @@
-```yaml
 apiVersion: auth0.gracey.io/v1alpha1
 kind: Client
 metadata:
@@ -38,4 +37,3 @@ spec:
         outputSecretRef:
             name: output-client-secret
             key: output-client-secret
-```

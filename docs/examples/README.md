@@ -1,3 +1,3 @@
 # Example resources
 
--   [Client](./client)
+-   [Client](./client.yaml)
