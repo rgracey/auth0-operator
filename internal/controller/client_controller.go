@@ -156,7 +156,7 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	c.JWTConfiguration.SecretEncoded = nil
 
 	// Move Client to the desired state
-	err = r.Auth0Api.Client.Update(ctx, instance.Status.Auth0Id, c)
+	err = r.Auth0Api.Client.Update(ctx, instance.Auth0Id(), c)
 
 	if err != nil {
 		logger.Error(err, "unable to update client", "name", instance.Spec.Name)
