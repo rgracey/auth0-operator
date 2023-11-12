@@ -12,9 +12,14 @@ const (
 	finalizerName = "finalizer.auth0.gracey.io"
 )
 
+// hasFinalizer returns true if the Client has the finalizer. False otherwise
+func (r *ClientReconciler) hasFinalizer(instance *auth0v1alpha1.Client) bool {
+	return controllerutil.ContainsFinalizer(instance, finalizerName)
+}
+
 // addFinalizer adds the finalizer to the Client if it doesn't already exist
 func (r *ClientReconciler) addFinalizer(instance *auth0v1alpha1.Client) error {
-	if controllerutil.ContainsFinalizer(instance, finalizerName) {
+	if !r.hasFinalizer(instance) {
 		return nil
 	}
 
@@ -24,7 +29,7 @@ func (r *ClientReconciler) addFinalizer(instance *auth0v1alpha1.Client) error {
 
 // removeFinalizer removes the finalizer from the Client if it exists
 func (r *ClientReconciler) removeFinalizer(instance *auth0v1alpha1.Client) error {
-	if !controllerutil.ContainsFinalizer(instance, finalizerName) {
+	if !r.hasFinalizer(instance) {
 		return nil
 	}
 
@@ -34,7 +39,7 @@ func (r *ClientReconciler) removeFinalizer(instance *auth0v1alpha1.Client) error
 
 // handleFinalizer handles the finalizer logic for the Client
 func (r *ClientReconciler) handleFinalizer(ctx context.Context, instance *auth0v1alpha1.Client) error {
-	if !controllerutil.ContainsFinalizer(instance, finalizerName) {
+	if !r.hasFinalizer(instance) {
 		return nil
 	}
 
