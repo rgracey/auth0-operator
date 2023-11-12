@@ -39,6 +39,32 @@ spec:
                 items:
                   type: string
                 type: array
+              clientSecret:
+                properties:
+                  literal:
+                    minLength: 48
+                    type: string
+                  outputSecretRef:
+                    properties:
+                      key:
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  secretRef:
+                    properties:
+                      key:
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                type: object
               description:
                 description: The description of the client
                 type: string

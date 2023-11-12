@@ -23,6 +23,20 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type SecretRef struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
+type ClientSecret struct {
+	// +kubebuilder:validation:MinLength:=48
+	Literal string `json:"literal,omitempty"`
+
+	SecretRef SecretRef `json:"secretRef,omitempty"`
+
+	OutputSecretRef SecretRef `json:"outputSecretRef,omitempty"`
+}
+
 // ClientSpec defines the desired state of Client
 type ClientSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -44,6 +58,8 @@ type ClientSpec struct {
 	// The metadata associated with this client
 	// +kubebuilder:validation:MaxProperties:=10
 	Metadata map[string]string `json:"metadata,omitempty"`
+
+	ClientSecret ClientSecret `json:"clientSecret,omitempty"`
 }
 
 // ClientStatus defines the observed state of Client

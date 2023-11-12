@@ -17,3 +17,14 @@ spec:
     - https://example.com/callback
   metadata:
     something: this is the value
+  clientSecret:
+    # Must be at least 48 characters long
+    # literal: "some-secretsome-secretsome-secretsome-secrjshdnd"
+
+    # secretRef:
+    #   name: client-secret
+    #   key: something
+
+    # outputSecretRef:
+    #   name: output-client-secret
+    #   key: output-client-secret

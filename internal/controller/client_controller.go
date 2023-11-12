@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,6 +57,7 @@ const (
 //+kubebuilder:rbac:groups=auth0.gracey.io,resources=clients/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=auth0.gracey.io,resources=clients/finalizers,verbs=update
 //+kubebuilder:rbac:groups=auth0.gracey.io,resources=events,verbs=create;patch
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -95,6 +97,8 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 				return ctrl.Result{}, nil
 			}
+
+			// N.B output secret is deleted via owner reference garbage collection
 
 			err := r.Auth0Api.Client.Delete(ctx, instance.Status.Auth0Id)
 
@@ -138,10 +142,14 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// Add finalizer if it doesn't exist
 		if !controllerutil.ContainsFinalizer(instance, finalizerName) {
 			controllerutil.AddFinalizer(instance, finalizerName)
-			if err := r.Update(ctx, instance); err != nil {
-				return ctrl.Result{}, err
-			}
+			return ctrl.Result{}, r.Update(ctx, instance)
 		}
+	}
+
+	var clientSecret, err = r.maybeLoadSecretValue(ctx, instance)
+
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	c := &management.Client{
@@ -150,6 +158,7 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		AppType:        &instance.Spec.Type,
 		Callbacks:      &instance.Spec.CallbackUrls,
 		ClientMetadata: &map[string]interface{}{},
+		ClientSecret:   clientSecret,
 	}
 
 	for k, v := range instance.Spec.Metadata {
@@ -170,7 +179,7 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		logger.Info("created client", "name", instance.Spec.Name, "Auth0 id", c.GetClientID())
 
 		instance.Status.Auth0Id = c.GetClientID()
-		apiErr := r.Status().Update(context.Background(), instance)
+		apiErr := r.Status().Update(ctx, instance)
 
 		if apiErr != nil {
 			logger.Error(apiErr, "unable to update client status", "name", instance.Spec.Name)
@@ -188,11 +197,30 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			),
 		)
 
-		return ctrl.Result{}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
+	c, err = r.Auth0Api.Client.Read(ctx, instance.Status.Auth0Id)
+
+	if err != nil {
+		logger.Error(err, "unable to read client", "name", instance.Spec.Name)
+		r.Recorder.Event(instance, "Warning", EventReasonUpdateFailed, err.Error())
+		return ctrl.Result{}, err
+	}
+
+	if instance.Spec.ClientSecret.OutputSecretRef.Name != "" {
+		if err := r.upsertOutputSecret(ctx, instance, c.GetClientSecret()); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Auth0 doesn't allow updating these fields
+	c.ClientID = nil
+	c.SigningKeys = nil
+	c.JWTConfiguration.SecretEncoded = nil
+
 	// Move Client to the desired state
-	err := r.Auth0Api.Client.Update(ctx, instance.Status.Auth0Id, c)
+	err = r.Auth0Api.Client.Update(ctx, instance.Status.Auth0Id, c)
 
 	if err != nil {
 		logger.Error(err, "unable to update client", "name", instance.Spec.Name)
@@ -201,12 +229,103 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	// TODO - Raise Updated event
+
 	return ctrl.Result{}, nil
+}
+
+// maybeLoadSecretValue attempts to load a secret from a secret first,
+// then a literal value if the secret doesn't exist
+func (r *ClientReconciler) maybeLoadSecretValue(
+	ctx context.Context,
+	instance *auth0v1alpha1.Client,
+) (*string, error) {
+	if instance.Spec.ClientSecret.SecretRef.Name != "" {
+		secretRef := instance.Spec.ClientSecret.SecretRef
+
+		secret := &corev1.Secret{}
+		err := r.Get(
+			ctx,
+			client.ObjectKey{
+				Namespace: instance.Namespace,
+				Name:      secretRef.Name,
+			},
+			secret,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		value, ok := secret.Data[secretRef.Key]
+
+		if !ok {
+			return nil, fmt.Errorf(
+				"clientSecret \"%s\" secretRef didn't contain key \"%s\"",
+				secretRef.Name,
+				secretRef.Key,
+			)
+		}
+
+		valueStr := string(value)
+		return &valueStr, nil
+	}
+
+	if instance.Spec.ClientSecret.Literal != "" {
+		return &instance.Spec.ClientSecret.Literal, nil
+	}
+
+	return nil, nil
+}
+
+// upsertOutputSecret creates or updates the output secret for a client
+func (r *ClientReconciler) upsertOutputSecret(
+	ctx context.Context,
+	instance *auth0v1alpha1.Client,
+	clientSecret string,
+) error {
+	secretRef := instance.Spec.ClientSecret.OutputSecretRef
+
+	secret := &corev1.Secret{
+		ObjectMeta: ctrl.ObjectMeta{
+			Namespace: instance.Namespace,
+			Name:      secretRef.Name,
+		},
+		StringData: map[string]string{
+			secretRef.Key: clientSecret,
+		},
+	}
+
+	err := r.Get(
+		ctx,
+		client.ObjectKey{
+			Namespace: instance.Namespace,
+			Name:      secretRef.Name,
+		},
+		secret,
+	)
+
+	if err == nil {
+		secret.StringData = map[string]string{}
+		secret.StringData[secretRef.Key] = clientSecret
+		return r.Update(ctx, secret)
+	}
+
+	if client.IgnoreNotFound(err) == nil {
+		if err = ctrl.SetControllerReference(instance, secret, r.Scheme); err != nil {
+			return err
+		}
+
+		return r.Create(ctx, secret)
+	}
+
+	return err
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClientReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&auth0v1alpha1.Client{}).
+		Owns(&corev1.Secret{}).
 		Complete(r)
 }
