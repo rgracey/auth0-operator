@@ -17,16 +17,20 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
+	"github.com/auth0/go-auth0/management"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -77,10 +81,44 @@ var _ = BeforeSuite(func() {
 
 	//+kubebuilder:scaffold:scheme
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+	})
+	Expect(err).ToNot(HaveOccurred())
 
+	domain := mustGetEnv("AUTH0_DOMAIN")
+	clientID := mustGetEnv("AUTH0_CLIENT_ID")
+	clientSecret := mustGetEnv("AUTH0_CLIENT_SECRET")
+
+	auth0Api, err := management.New(
+		domain,
+		management.WithClientCredentials(
+			context.Background(),
+			clientID,
+			clientSecret,
+		),
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = (&ClientReconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: k8sManager.GetEventRecorderFor("auth0-controller"),
+		Auth0Api: auth0Api,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+	}()
+
+	k8sClient = k8sManager.GetClient()
+	Expect(k8sClient).ToNot(BeNil())
 })
 
 var _ = AfterSuite(func() {
@@ -88,3 +126,12 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+// mustGetEnv returns the value of an environment variable or panics if it is not set.
+func mustGetEnv(key string) string {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		panic(fmt.Sprintf("Required environment variable %s not set", key))
+	}
+	return value
+}
