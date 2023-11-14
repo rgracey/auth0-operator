@@ -88,6 +88,11 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	// callbackUrls must be non-nil
+	if instance.Spec.CallbackUrls == nil {
+		instance.Spec.CallbackUrls = []string{}
+	}
+
 	c := &management.Client{
 		Name:           &instance.Spec.Name,
 		Description:    &instance.Spec.Description,
@@ -119,6 +124,15 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 		if apiErr != nil {
 			logger.Error(apiErr, "unable to update client status", "name", instance.Spec.Name)
+
+			logger.Info("deleting client", "name", instance.Spec.Name, "Auth0 id", instance.Status.Auth0Id)
+			err = r.Auth0Api.Client.Delete(ctx, instance.Status.Auth0Id)
+
+			if err != nil {
+				logger.Error(err, "unable to delete client", "name", instance.Spec.Name)
+				r.Recorder.Event(instance, "Warning", EventReasonDeleteFailed, err.Error())
+			}
+
 			return ctrl.Result{}, apiErr
 		}
 

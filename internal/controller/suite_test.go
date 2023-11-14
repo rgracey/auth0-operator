@@ -43,9 +43,14 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
+var (
+	cfg       *rest.Config
+	k8sClient client.Client
+	auth0Api  *management.Management
+	testEnv   *envtest.Environment
+	ctx       context.Context
+	cancel    context.CancelFunc
+)
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -55,6 +60,8 @@ func TestControllers(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	ctx, cancel = context.WithCancel(context.TODO())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -81,6 +88,10 @@ var _ = BeforeSuite(func() {
 
 	//+kubebuilder:scaffold:scheme
 
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(k8sClient).ToNot(BeNil())
+
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
 	})
@@ -90,7 +101,7 @@ var _ = BeforeSuite(func() {
 	clientID := mustGetEnv("AUTH0_CLIENT_ID")
 	clientSecret := mustGetEnv("AUTH0_CLIENT_SECRET")
 
-	auth0Api, err := management.New(
+	auth0Api, err = management.New(
 		domain,
 		management.WithClientCredentials(
 			context.Background(),
@@ -98,10 +109,8 @@ var _ = BeforeSuite(func() {
 			clientSecret,
 		),
 	)
-
-	if err != nil {
-		panic(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
+	Expect(auth0Api).ToNot(BeNil())
 
 	err = (&ClientReconciler{
 		Client:   k8sManager.GetClient(),
@@ -113,15 +122,13 @@ var _ = BeforeSuite(func() {
 
 	go func() {
 		defer GinkgoRecover()
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
-
-	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
 })
 
 var _ = AfterSuite(func() {
+	cancel()
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
