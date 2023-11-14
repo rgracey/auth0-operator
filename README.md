@@ -5,7 +5,7 @@
     <img src="./docs/images/k8s_logo.svg" alt="Auth0 logo" width="80" height="80">
   </div>
 
-  <h3 align="center">Auth0 Operator</h3>
+  <h1 align="center" style="background: linear-gradient(to right, #eb5424, #326ce5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 48px;">Auth0 Operator</h1>
 
   <p align="center">
     Kubernetes operator for Auth0 management
