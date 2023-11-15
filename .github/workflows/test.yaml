@@ -30,9 +30,6 @@ jobs:
       - name: Install dependencies
         run: |
           go install github.com/onsi/ginkgo/v2/ginkgo
-      - name: Check Ginkgo
-        run: |
-          which ginkgo
       - name: Run tests
         env:
           AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
