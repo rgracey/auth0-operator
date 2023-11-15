@@ -29,10 +29,7 @@ jobs:
           go-version: "1.20.x"
       - name: Install dependencies
         run: |
-          go get github.com/onsi/ginkgo/v2/ginkgo
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-          ls -l "$(go env GOPATH)/bin"
-          echo "PATH: $PATH"
+          go install github.com/onsi/ginkgo/v2/ginkgo
       - name: Check Ginkgo
         run: |
           which ginkgo
