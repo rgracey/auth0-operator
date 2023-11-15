@@ -72,8 +72,8 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if err := r.addFinalizer(instance); err != nil {
-		return ctrl.Result{}, err
+	if !r.hasFinalizer(instance) {
+		return ctrl.Result{Requeue: true}, r.addFinalizer(instance)
 	}
 
 	// Check if the Client instance is being deleted, and run finalizer logic

@@ -19,10 +19,6 @@ func (r *ClientReconciler) hasFinalizer(instance *auth0v1alpha1.Client) bool {
 
 // addFinalizer adds the finalizer to the Client if it doesn't already exist
 func (r *ClientReconciler) addFinalizer(instance *auth0v1alpha1.Client) error {
-	if r.hasFinalizer(instance) {
-		return nil
-	}
-
 	controllerutil.AddFinalizer(instance, finalizerName)
 	return r.Update(context.Background(), instance)
 }
