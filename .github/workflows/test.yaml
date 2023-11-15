@@ -33,6 +33,9 @@ jobs:
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
           ls -l "$(go env GOPATH)/bin"
           echo "PATH: $PATH"
+      - name: Check Ginkgo
+        run: |
+          which ginkgo
       - name: Run tests
         env:
           AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
