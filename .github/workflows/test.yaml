@@ -31,6 +31,8 @@ jobs:
         run: |
           go get github.com/onsi/ginkgo/v2/ginkgo
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          ls -l "$(go env GOPATH)/bin"
+          echo "PATH: $PATH"
       - name: Run tests
         env:
           AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
