@@ -13,6 +13,9 @@
   <br />
 </div>
 
+[![Test 🧪](https://github.com/rgracey/auth0-operator/actions/workflows/test.yaml/badge.svg?branch=main&event=push)](https://github.com/rgracey/auth0-operator/actions/workflows/test.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rgracey/auth0-operator)](https://goreportcard.com/report/github.com/rgracey/auth0-operator)
+
 ## About The Project
 
 The Auth0 Kubernetes Operator is responsible for managing the lifecycle of Auth0 resources in a Kubernetes cluster.
