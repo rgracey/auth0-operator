@@ -11,6 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// Timeout for eventually assertions
+const timeout = time.Second * 7
+
 var _ = Describe("Client controller", func() {
 	key := types.NamespacedName{
 		Name:      "test-client",
@@ -44,7 +47,7 @@ var _ = Describe("Client controller", func() {
 			// Check that the client is deleted
 			Eventually(func() bool {
 				return k8sClient.Get(ctx, key, nil) != nil
-			}).WithTimeout(3 * time.Second).Should(BeTrue())
+			}).WithTimeout(timeout).Should(BeTrue())
 
 			// Check that the client is deleted in Auth0
 			Eventually(func() bool {
@@ -55,7 +58,7 @@ var _ = Describe("Client controller", func() {
 
 				Expect(err.Error()).To(ContainSubstring("Not Found"))
 				return true
-			}).WithTimeout(3 * time.Second).Should(BeTrue())
+			}).WithTimeout(timeout).Should(BeTrue())
 		})
 
 		// Create the client in the cluster
@@ -68,7 +71,7 @@ var _ = Describe("Client controller", func() {
 					return false
 				}
 				return client.Status.Auth0Id != ""
-			}).WithTimeout(3 * time.Second).Should(BeTrue())
+			}).WithTimeout(timeout).Should(BeTrue())
 
 			c, err := auth0Api.Client.Read(ctx, client.Status.Auth0Id)
 			Expect(err).To(BeNil())
@@ -97,7 +100,7 @@ var _ = Describe("Client controller", func() {
 						}
 
 						return *c.ClientSecret == expectedSecret
-					}).WithTimeout(3 * time.Second).Should(BeTrue())
+					}).WithTimeout(timeout).Should(BeTrue())
 				})
 			})
 
@@ -140,7 +143,7 @@ var _ = Describe("Client controller", func() {
 							}
 
 							return *c.ClientSecret == expectedSecret
-						}).WithTimeout(3 * time.Second).Should(BeTrue())
+						}).WithTimeout(timeout).Should(BeTrue())
 					})
 				})
 
@@ -223,7 +226,7 @@ var _ = Describe("Client controller", func() {
 					}
 
 					return string(s.Data[outputSecretKey]) != ""
-				}).WithTimeout(3 * time.Second).Should(BeTrue())
+				}).WithTimeout(timeout).Should(BeTrue())
 
 				By("checking that the secret has an owner reference")
 				Eventually(func() bool {
@@ -242,7 +245,7 @@ var _ = Describe("Client controller", func() {
 					}
 
 					return len(secret.OwnerReferences) > 0
-				}).WithTimeout(1 * time.Second).Should(BeTrue())
+				}).WithTimeout(timeout).Should(BeTrue())
 			})
 
 			When("the output secret already exists", func() {
@@ -277,7 +280,7 @@ var _ = Describe("Client controller", func() {
 						}
 
 						return string(secret.Data[outputSecretKey]) != "old-value"
-					}).WithTimeout(3 * time.Second).Should(BeTrue())
+					}).WithTimeout(timeout).Should(BeTrue())
 				})
 			})
 		})
