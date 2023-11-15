@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           go get github.com/onsi/ginkgo/v2/ginkgo
-          echo $(go env GOPATH)/bin >> $GITHUB_PATH
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
       - name: Run tests
         env:
           AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
