@@ -1,28 +1,35 @@
 package controller
 
 import (
+	"context"
 	"time"
 
+	"github.com/auth0/go-auth0/management"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	auth0v1alpha1 "github.com/rgracey/auth0-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // Timeout for eventually assertions
 const timeout = time.Second * 7
 
 var _ = Describe("Client controller", func() {
-	key := types.NamespacedName{
-		Name:      "test-client",
-		Namespace: "default",
-	}
+	var key types.NamespacedName
 
 	var client *auth0v1alpha1.Client
 
+	var auth0Client *management.Client
+
 	BeforeEach(func() {
+		key = types.NamespacedName{
+			Name:      "test-client-" + time.Now().Format("20060102150405"),
+			Namespace: "default",
+		}
 		client = &auth0v1alpha1.Client{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
@@ -42,43 +49,37 @@ var _ = Describe("Client controller", func() {
 	Describe("when a client is created", func() {
 		AfterEach(func() {
 			// Delete the client
-			Expect(k8sClient.Delete(ctx, client)).To(Succeed())
+			Expect(k8sClient.Delete(context.Background(), client)).To(Succeed())
 
-			// Check that the client is deleted
 			Eventually(func() bool {
-				return k8sClient.Get(ctx, key, nil) != nil
-			}).WithTimeout(timeout).Should(BeTrue())
-
-			// Check that the client is deleted in Auth0
-			Eventually(func() bool {
-				_, err := auth0Api.Client.Read(ctx, client.Status.Auth0Id)
-				if err == nil {
-					return false
-				}
-
-				Expect(err.Error()).To(ContainSubstring("Not Found"))
-				return true
+				err := k8sClient.Get(ctx, key, &auth0v1alpha1.Client{})
+				return ctrlclient.IgnoreNotFound(err) == nil
 			}).WithTimeout(timeout).Should(BeTrue())
 		})
 
-		// Create the client in the cluster
 		JustBeforeEach(func() {
+			// Create he client in the cluster
 			Expect(k8sClient.Create(ctx, client)).To(Succeed())
 
+			// Wait for the Auth0 ID to be populated and finalizer to be added
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, client)
-				if err != nil {
+				if err := k8sClient.Get(ctx, key, client); err != nil {
 					return false
 				}
-				return client.Status.Auth0Id != ""
+				return client.Status.Auth0Id != "" && controllerutil.ContainsFinalizer(client, finalizerName)
 			}).WithTimeout(timeout).Should(BeTrue())
 
-			c, err := auth0Api.Client.Read(ctx, client.Status.Auth0Id)
+			// Get the Auth0 client
+			var err error
+			auth0Client, err = auth0Api.Client.Read(ctx, client.Status.Auth0Id)
 			Expect(err).To(BeNil())
-			Expect(c).ToNot(BeNil())
-			Expect(*c.Name).To(Equal(client.Spec.Name))
-			Expect(*c.Description).To(Equal(client.Spec.Description))
-			Expect(*c.AppType).To(Equal(client.Spec.Type))
+			Expect(auth0Client).ToNot(BeNil())
+		})
+
+		It("should create a client in Auth0 with the correct values", func() {
+			Expect(*auth0Client.Name).To(Equal(client.Spec.Name))
+			Expect(*auth0Client.Description).To(Equal(client.Spec.Description))
+			Expect(*auth0Client.AppType).To(Equal(client.Spec.Type))
 			// Expect(*c.ClientMetadata).To(ConsistOf(client.Spec.Metadata))
 		})
 
@@ -93,14 +94,7 @@ var _ = Describe("Client controller", func() {
 				})
 
 				It("should create a client in Auth0 with the provided secret", func() {
-					Eventually(func() bool {
-						c, err := auth0Api.Client.Read(ctx, client.Status.Auth0Id)
-						if err != nil {
-							return false
-						}
-
-						return *c.ClientSecret == expectedSecret
-					}).WithTimeout(timeout).Should(BeTrue())
+					Expect(*auth0Client.ClientSecret).To(Equal(expectedSecret))
 				})
 			})
 
@@ -122,7 +116,7 @@ var _ = Describe("Client controller", func() {
 				})
 
 				AfterEach(func() {
-					Expect(k8sClient.Delete(ctx, secret)).To(Succeed())
+					Expect(k8sClient.Delete(context.Background(), secret)).To(Succeed())
 				})
 
 				When("the secret exists and the key exists", func() {
@@ -136,14 +130,7 @@ var _ = Describe("Client controller", func() {
 					})
 
 					It("should create a client in Auth0 with the provided secret", func() {
-						Eventually(func() bool {
-							c, err := auth0Api.Client.Read(ctx, client.Status.Auth0Id)
-							if err != nil {
-								return false
-							}
-
-							return *c.ClientSecret == expectedSecret
-						}).WithTimeout(timeout).Should(BeTrue())
+						Expect(*auth0Client.ClientSecret).To(Equal(expectedSecret))
 					})
 				})
 
@@ -178,18 +165,16 @@ var _ = Describe("Client controller", func() {
 
 		When("no secret is provided", func() {
 			It("should create a client in Auth0 with a generated secret", func() {
-				c, err := auth0Api.Client.Read(ctx, client.Status.Auth0Id)
-				Expect(err).To(BeNil())
-				Expect(c).ToNot(BeNil())
-				Expect(*c.ClientSecret).ToNot(BeEmpty())
+				Expect(*auth0Client.ClientSecret).ToNot(BeEmpty())
 			})
 		})
 
 		When("an output secret is specified", func() {
-			const outputSecretName = "test-output-secret"
+			var outputSecretName string
 			const outputSecretKey = "test-key"
 
 			BeforeEach(func() {
+				outputSecretName = "test-output-secret-" + time.Now().Format("20060102150405") 
 				client.Spec.ClientSecret = auth0v1alpha1.ClientSecret{
 					OutputSecretRef: auth0v1alpha1.SecretRef{
 						Name: outputSecretName,
@@ -200,7 +185,7 @@ var _ = Describe("Client controller", func() {
 
 			AfterEach(func() {
 				// Delete the output secret
-				Expect(k8sClient.Delete(ctx, &corev1.Secret{
+				Expect(k8sClient.Delete(context.Background(), &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      outputSecretName,
 						Namespace: key.Namespace,

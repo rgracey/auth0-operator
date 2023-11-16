@@ -175,12 +175,6 @@ func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		logger.Error(err, "unable to update client", "name", instance.Spec.Name)
 		r.Recorder.Event(instance, "Warning", EventReasonUpdateFailed, err.Error())
-		apiErr := r.Status().Update(context.Background(), instance)
-
-		if apiErr != nil {
-			logger.Error(apiErr, "unable to update client status", "name", instance.Spec.Name)
-		}
-
 		return ctrl.Result{}, err
 	}
 
