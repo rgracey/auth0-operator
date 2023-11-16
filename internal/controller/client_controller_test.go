@@ -270,4 +270,40 @@ var _ = Describe("Client controller", func() {
 			})
 		})
 	})
+
+	Describe("when a client is deleted", func() {
+		var client *auth0v1alpha1.Client
+
+		BeforeEach(func() {
+			client = &auth0v1alpha1.Client{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: auth0v1alpha1.ClientSpec{
+					Name:        "test-suite-client",
+					Type:        "spa",
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sClient.Create(ctx, client)).To(Succeed())
+		})
+
+		It("should delete the client in Auth0", func() {
+			Expect(k8sClient.Delete(context.Background(), client)).To(Succeed())
+
+			// Check that the client is deleted in Auth0
+			Eventually(func() bool {
+				_, err := auth0Api.Client.Read(ctx, client.Status.Auth0Id)
+				if err == nil {
+					return false
+				}
+
+				Expect(err.Error()).To(ContainSubstring("Not Found"))
+				return true
+			}).WithTimeout(timeout).WithPolling(1 * time.Second).Should(BeTrue())
+		})
+	})
 })
