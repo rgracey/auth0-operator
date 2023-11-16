@@ -174,7 +174,7 @@ var _ = Describe("Client controller", func() {
 			const outputSecretKey = "test-key"
 
 			BeforeEach(func() {
-				outputSecretName = "test-output-secret-" + time.Now().Format("20060102150405") 
+				outputSecretName = "test-output-secret-" + time.Now().Format("20060102150405")
 				client.Spec.ClientSecret = auth0v1alpha1.ClientSecret{
 					OutputSecretRef: auth0v1alpha1.SecretRef{
 						Name: outputSecretName,
@@ -281,8 +281,8 @@ var _ = Describe("Client controller", func() {
 					Namespace: key.Namespace,
 				},
 				Spec: auth0v1alpha1.ClientSpec{
-					Name:        "test-suite-client",
-					Type:        "spa",
+					Name: "test-suite-client",
+					Type: "spa",
 				},
 			}
 		})
